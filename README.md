@@ -1,73 +1,237 @@
-# Welcome to your Lovable project
+📌 Smart Bookmark App
 
-## Project info
+A modern bookmark manager built with Next.js (App Router), Supabase (Auth, Database, Realtime), and Tailwind CSS.
+Users can securely sign in with Google, save private bookmarks, and experience real-time synchronization across multiple tabs.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+Live Demo: [Your Vercel URL Here]
+GitHub Repo: [Your GitHub Repo Link Here]
 
-## How can I edit this code?
+🚀 Features
 
-There are several ways of editing your application.
+🔐 Google OAuth Authentication (Supabase Auth)
 
-**Use Lovable**
+🔒 Private bookmarks per user (Row Level Security)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+⚡ Real-time synchronization across tabs
 
-Changes made via Lovable will be committed automatically to this repo.
+➕ Add bookmark (Title + URL)
 
-**Use your preferred IDE**
+🗑 Delete bookmark
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+📱 Fully responsive UI
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+🌐 Deployed on Vercel
 
-Follow these steps:
+🛠 Tech Stack
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+Next.js 14+ (App Router)
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+React
 
-# Step 3: Install the necessary dependencies.
-npm i
+Supabase (Auth, Database, Realtime)
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+Tailwind CSS
 
-**Edit a file directly in GitHub**
+Vercel Deployment
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+🧩 Challenges Faced & How I Solved Them
+1️⃣ Google OAuth Redirect Issues
+Problem:
 
-**Use GitHub Codespaces**
+After implementing Google login, authentication failed due to redirect URI mismatch errors.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Root Cause:
 
-## What technologies are used for this project?
+The Supabase project URL, local development URL, and Vercel production URL were not properly configured inside:
 
-This project is built with:
+Supabase Auth settings
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Google Cloud Console OAuth settings
 
-## How can I deploy this project?
+Solution:
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Added correct redirect URIs in Supabase:
 
-## Can I connect a custom domain to my Lovable project?
+https://PROJECT_ID.supabase.co/auth/v1/callback
 
-Yes, you can!
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Added both:
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+http://localhost:3000
+
+https://your-vercel-domain.vercel.app
+inside Google Cloud Console Authorized Origins & Redirect URIs.
+
+After aligning all URLs correctly, authentication worked seamlessly.
+
+2️⃣ Real-Time Updates Not Triggering
+Problem:
+
+Bookmarks were not updating in real-time across multiple tabs.
+
+Root Cause:
+
+Supabase Realtime was not properly subscribed to the postgres_changes channel, and initially, I forgot to enable Realtime on the table.
+
+Solution:
+
+Enabled Realtime for the bookmarks table in Supabase.
+
+Implemented a proper channel subscription using:
+
+supabase
+  .channel("realtime-bookmarks")
+  .on("postgres_changes", { event: "*", schema: "public", table: "bookmarks" }, ...)
+  .subscribe()
+
+
+Now when a bookmark is added or deleted in one tab, it instantly updates in another.
+
+3️⃣ Data Privacy (Critical Issue)
+Problem:
+
+Initially, all users could see each other’s bookmarks.
+
+Root Cause:
+
+Row Level Security (RLS) was not enabled, so Supabase returned all rows.
+
+Solution:
+
+Enabled RLS on the bookmarks table.
+
+Added policies:
+
+Users can SELECT only their own bookmarks.
+
+Users can INSERT only with their own user_id.
+
+Users can DELETE only their own bookmarks.
+
+This ensured complete user data isolation.
+
+4️⃣ React Keys Warning (Important UI Challenge)
+Problem:
+
+React showed warnings:
+
+Each child in a list should have a unique "key" prop.
+
+
+Additionally, when deleting a bookmark, sometimes the wrong item visually disappeared or UI behaved unexpectedly.
+
+Root Cause:
+
+Initially, I used the array index as the key:
+
+{bookmarks.map((bookmark, index) => (
+  <div key={index}>...</div>
+))}
+
+
+Using array index as key caused unstable rendering when:
+
+Items were deleted
+
+Real-time updates reordered data
+
+Multiple tabs updated simultaneously
+
+React relies on stable keys to correctly identify elements during reconciliation. When using index as key, React mismatched components during state updates.
+
+Solution:
+
+Used the unique id generated by Supabase as the key:
+
+{bookmarks.map((bookmark) => (
+  <div key={bookmark.id}>...</div>
+))}
+
+
+This fixed:
+
+Incorrect re-renders
+
+UI glitches during deletion
+
+Real-time sync inconsistencies
+
+React warnings
+
+Using stable database IDs ensures predictable rendering and proper DOM reconciliation.
+
+5️⃣ Session Persistence Issue
+Problem:
+
+On refresh, user session sometimes appeared lost.
+
+Root Cause:
+
+Session state was not properly fetched on initial render.
+
+Solution:
+
+Used:
+
+supabase.auth.getSession()
+
+
+and also listened to:
+
+supabase.auth.onAuthStateChange()
+
+
+This ensured session persistence across reloads.
+
+🧠 What I Learned
+
+Importance of Row Level Security for multi-user apps
+
+Why stable React keys are critical for predictable UI updates
+
+How React reconciliation works internally
+
+How Supabase Realtime subscriptions function
+
+Proper OAuth configuration in production environments
+
+Managing environment variables securely in Vercel
+
+🔐 Security Considerations
+
+RLS policies prevent cross-user data leaks
+
+No client-side filtering for privacy
+
+
+🌍 Deployment
+
+The application is deployed on Vercel.
+
+Production build:
+      npm run build
+
+Environment variables were added in Vercel dashboard before deployment.
+
+📦 Future Improvements
+
+Bookmark editing feature
+
+Bookmark categories / tags
+
+Search & filtering
+
+Drag-and-drop sorting
+
+Folder organization
+
+Rate limiting
+
+Optimistic UI updates
+
+👨‍💻 Author
+
+Built as part of a frontend engineering assessment.
+Supabase handles secure OAuth flow
+
+Environment variables are stored in Vercel securely
